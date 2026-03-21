@@ -71,37 +71,79 @@
 #             print(f"Error on {s}: {e}")
 
 
+# import os
+# from src.data_loader import load_data
+# from src.preprocessing import preprocess, add_session
+# from src.features import add_features
+
+# def run(symbol, use_yfinance=False):
+#     print(f"--- Processing {symbol} ---")
+    
+#     # Load CSV + optional live Yahoo Finance data
+#     df = load_data(symbol, use_yfinance=use_yfinance)
+#     print(f"Loaded {len(df)} rows for {symbol}")
+    
+#     # Preprocess: sort, compute log returns, filter bad data
+#     df = preprocess(df)
+    
+#     # Add session info (OPEN/MID/CLOSE)
+#     df = add_session(df)
+    
+#     # Feature engineering: rolling mean, volatility, slope
+#     df = add_features(df)
+    
+#     # Save processed CSV
+#     if not os.path.exists("outputs"):
+#         os.makedirs("outputs")
+    
+#     output_file = f"outputs/{symbol}_processed.csv"
+#     df.to_csv(output_file, index=False)
+#     print(f"Saved processed file to {output_file}\n")
+
+# if __name__ == "__main__":
+#     stocks = ["RELIANCE", "TCS", "ADANIGREEN"]
+    
+#     for s in stocks:
+#         run(s, use_yfinance=True)
+
 import os
 from src.data_loader import load_data
 from src.preprocessing import preprocess, add_session
 from src.features import add_features
+from src.hurst import rolling_hurst
+from src.volatility import volatility_regime
+from src.volume import volume_features
 
 def run(symbol, use_yfinance=False):
     print(f"--- Processing {symbol} ---")
     
-    # Load CSV + optional live Yahoo Finance data
     df = load_data(symbol, use_yfinance=use_yfinance)
     print(f"Loaded {len(df)} rows for {symbol}")
     
-    # Preprocess: sort, compute log returns, filter bad data
     df = preprocess(df)
-    
-    # Add session info (OPEN/MID/CLOSE)
     df = add_session(df)
-    
-    # Feature engineering: rolling mean, volatility, slope
+
+    # Core features
     df = add_features(df)
-    
-    # Save processed CSV
+
+    df = df.tail(100000)
+    df = df.iloc[::2]
+    # NEW FEATURES 👇
+    df = rolling_hurst(df)
+    df = volatility_regime(df)
+    df = volume_features(df)
+
+    # Save
     if not os.path.exists("outputs"):
         os.makedirs("outputs")
     
     output_file = f"outputs/{symbol}_processed.csv"
     df.to_csv(output_file, index=False)
+
     print(f"Saved processed file to {output_file}\n")
 
 if __name__ == "__main__":
     stocks = ["RELIANCE", "TCS", "ADANIGREEN"]
-    
+    #stocks = ["RELIANCE"]
     for s in stocks:
         run(s, use_yfinance=True)
