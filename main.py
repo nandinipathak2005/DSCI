@@ -107,12 +107,16 @@
 #         run(s, use_yfinance=True)
 
 import os
+import pandas as pd
 from src.data_loader import load_data
 from src.preprocessing import preprocess, add_session
 from src.features import add_features
 from src.hurst import rolling_hurst
 from src.volatility import volatility_regime
 from src.volume import volume_features
+from src.regime import classify
+from src.confidence import compute_confidence, compute_risk
+from src.alerts import generate_alerts
 
 def run(symbol, use_yfinance=False):
     print(f"--- Processing {symbol} ---")
@@ -128,22 +132,34 @@ def run(symbol, use_yfinance=False):
 
     df = df.tail(100000)
     df = df.iloc[::2]
-    # NEW FEATURES 👇
+
     df = rolling_hurst(df)
     df = volatility_regime(df)
     df = volume_features(df)
 
+    df = classify(df)
+    df = compute_confidence(df)
+    df = compute_risk(df)
+
+    alerts = generate_alerts(df, symbol)
     # Save
     if not os.path.exists("outputs"):
         os.makedirs("outputs")
     
     output_file = f"outputs/{symbol}_processed.csv"
+    alerts_file = f"outputs/{symbol}_alerts.csv"
     df.to_csv(output_file, index=False)
+    pd.DataFrame(alerts).to_csv(alerts_file, index=False)
 
     print(f"Saved processed file to {output_file}\n")
+    print(f"Saved alerts → {alerts_file}")
 
 if __name__ == "__main__":
     stocks = ["RELIANCE", "TCS", "ADANIGREEN"]
     #stocks = ["RELIANCE"]
     for s in stocks:
-        run(s, use_yfinance=True)
+        try:
+            run(s, use_yfinance=True)
+
+        except Exception as e:
+            print(f"Error on {s}: {e}")
